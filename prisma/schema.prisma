@@ -1,0 +1,60 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Voter {
+  id           String   @id @default(cuid())
+  fullName     String
+  email        String   @unique
+  passwordHash String
+  studentId    String   @unique
+  department   String
+  faculty      String
+  level        String
+  status       String   @default("active")
+  createdAt    DateTime @default(now())
+  votes        Vote[]
+}
+
+model Election {
+  id          String      @id @default(cuid())
+  title       String
+  description String?
+  status      String      @default("active")
+  createdAt   DateTime    @default(now())
+  candidates  Candidate[]
+  votes       Vote[]
+}
+
+model Candidate {
+  id         String   @id @default(cuid())
+  name       String
+  post       String?
+  department String?
+  level      String?
+  manifesto  String?
+  color      String?
+  photo      String?
+  avatar     String?
+  electionId String
+  election   Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  votes      Vote[]
+}
+
+model Vote {
+  id          String    @id @default(cuid())
+  voterId     String
+  electionId  String
+  candidateId String
+  createdAt   DateTime  @default(now())
+  voter       Voter     @relation(fields: [voterId], references: [id], onDelete: Cascade)
+  election    Election  @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@unique([voterId, electionId])
+}
