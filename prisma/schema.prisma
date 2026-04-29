@@ -13,9 +13,9 @@ model Voter {
   email        String   @unique
   passwordHash String
   studentId    String   @unique
-  department   String
-  faculty      String
-  level        String
+  department   String   @default("")
+  faculty      String   @default("")
+  level        String   @default("")
   status       String   @default("active")
   createdAt    DateTime @default(now())
   votes        Vote[]
@@ -24,7 +24,7 @@ model Voter {
 model Election {
   id          String      @id @default(cuid())
   title       String
-  description String?
+  description String      @default("")
   status      String      @default("active")
   createdAt   DateTime    @default(now())
   candidates  Candidate[]
@@ -34,13 +34,13 @@ model Election {
 model Candidate {
   id         String   @id @default(cuid())
   name       String
-  post       String?
-  department String?
-  level      String?
-  manifesto  String?
-  color      String?
-  photo      String?
-  avatar     String?
+  post       String   @default("")
+  department String   @default("")
+  level      String   @default("")
+  manifesto  String   @default("")
+  color      String   @default("#00e5a0")
+  avatar     String   @default("")
+  photo      String   @default("")
   electionId String
   election   Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
   votes      Vote[]
