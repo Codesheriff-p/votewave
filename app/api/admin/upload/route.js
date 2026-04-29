@@ -1,49 +1,46 @@
-import { NextResponse } from 'next/server'
-import fs from 'fs'
-import path from 'path'
-import { getSession } from '@/lib/auth'
-import { getElectionById, updateCandidatePhoto } from '@/lib/db'
+import { NextResponse } from 'next/server';
+import { UTApi } from "uploadthing/server";
+import { getSession } from '@/lib/auth';
+import { getElectionById, updateCandidatePhoto } from '@/lib/db';
+
+const utapi = new UTApi();
+export const dynamic = 'force-dynamic';
 
 export async function POST(req) {
-  const session = await getSession()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const formData    = await req.formData()
-  const file        = formData.get('file')
-  const electionId  = formData.get('electionId')
-  const candidateId = formData.get('candidateId')
+  const formData = await req.formData();
+  const file = formData.get('file');
+  const electionId = formData.get('electionId');
+  const candidateId = formData.get('candidateId');
 
   if (!file || !electionId || !candidateId)
-    return NextResponse.json({ error: 'Missing fields.' }, { status: 400 })
+    return NextResponse.json({ error: 'Missing fields.' }, { status: 400 });
 
   if (!file.type.startsWith('image/'))
-    return NextResponse.json({ error: 'Only image files are allowed.' }, { status: 400 })
+    return NextResponse.json({ error: 'Only image files are allowed.' }, { status: 400 });
 
-  const bytes = await file.arrayBuffer()
-  if (bytes.byteLength > 2 * 1024 * 1024)
-    return NextResponse.json({ error: 'Image must be under 2MB.' }, { status: 400 })
+  // 1. Upload to Cloud (Uploadthing) instead of local folder
+  const response = await utapi.uploadFiles(file);
 
-  // Save to public/candidates/
-  const uploadsDir = path.join(process.cwd(), 'public', 'candidates')
-  if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true })
+  if (!response.data) {
+    return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
+  }
 
-  const ext      = file.name.split('.').pop().toLowerCase()
-  const filename = `${candidateId}.${ext}`
-  fs.writeFileSync(path.join(uploadsDir, filename), Buffer.from(bytes))
+  const photoUrl = response.data.url; // This is the permanent cloud link
 
-  const photoUrl = `/candidates/${filename}`
-
-  // Verify election and candidate exist
-  const election = await getElectionById(electionId)
+  // 2. Verify election and candidate exist
+  const election = await getElectionById(electionId);
   if (!election)
-    return NextResponse.json({ error: 'Election not found.' }, { status: 404 })
+    return NextResponse.json({ error: 'Election not found.' }, { status: 404 });
 
-  const candidate = election.candidates.find(c => c.id === candidateId)
+  const candidate = election.candidates.find(c => c.id === candidateId);
   if (!candidate)
-    return NextResponse.json({ error: 'Candidate not found.' }, { status: 404 })
+    return NextResponse.json({ error: 'Candidate not found.' }, { status: 404 });
 
-  // Save photo URL to database
-  await updateCandidatePhoto(candidateId, photoUrl)
+  // 3. Save the permanent cloud URL to your database
+  await updateCandidatePhoto(candidateId, photoUrl);
 
-  return NextResponse.json({ photoUrl })
+  return NextResponse.json({ photoUrl });
 }
