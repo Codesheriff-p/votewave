@@ -96,6 +96,7 @@ export default function AdminPage() {
 
     // 2 — upload photos for candidates that have one
     const validCandidates = form.candidates.filter(c => c.name.trim())
+    const uploadErrors = []
     for (let i = 0; i < validCandidates.length; i++) {
       const c = validCandidates[i]
       const dbC = election.candidates[i]
@@ -104,7 +105,17 @@ export default function AdminPage() {
       fd.append('file', c.photoFile)
       fd.append('electionId', election.id)
       fd.append('candidateId', dbC.id)
-      await fetch('/api/admin/upload', { method: 'POST', body: fd })
+      const upRes = await fetch('/api/admin/upload', { method: 'POST', body: fd })
+      if (!upRes.ok) {
+        const upData = await upRes.json()
+        uploadErrors.push(`${c.name}: ${upData.error || 'Upload failed'}`)
+      }
+    }
+    if (uploadErrors.length > 0) {
+      setFormError(`Election created, but photo upload failed — ${uploadErrors.join('; ')}`)
+      setCreating(false)
+      fetchData()
+      return
     }
 
     setCreating(false)
